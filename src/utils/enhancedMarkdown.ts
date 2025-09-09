@@ -3,8 +3,9 @@ import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import remarkEmoji from 'remark-emoji'
 import remarkMath from 'remark-math'
-import remarkHtml from 'remark-html'
+import remarkRehype from 'remark-rehype'
 import rehypeKatex from 'rehype-katex'
+import rehypeStringify from 'rehype-stringify'
 import { githubHighlighter } from './githubHighlighter'
 
 export class EnhancedMarkdownProcessor {
@@ -36,13 +37,16 @@ export class EnhancedMarkdownProcessor {
         emoticon: false
       })
       .use(remarkMath)
-      .use(remarkHtml, {
-        sanitize: false // Allow HTML for better rendering
+      .use(remarkRehype, {
+        allowDangerousHtml: true // Allow HTML for code blocks
       })
       .use(rehypeKatex, {
         // KaTeX options
         throwOnError: false,
         strict: false
+      })
+      .use(rehypeStringify, {
+        allowDangerousHtml: true // Allow HTML for code blocks
       })
 
     this.initialized = true
@@ -72,7 +76,7 @@ export class EnhancedMarkdownProcessor {
     // Enhanced regex to match code blocks with language
     const codeBlockRegex = /<pre><code(?:\s+class="language-([^"]*)")?>([\s\S]*?)<\/code><\/pre>/g
     
-    return html.replace(codeBlockRegex, (match, language, code) => {
+    return html.replace(codeBlockRegex, (_, language, code) => {
       // Decode HTML entities in the code
       const decodedCode = this.decodeHtmlEntities(code)
       
@@ -151,7 +155,7 @@ export class EnhancedMarkdownProcessor {
       ':x:': '❌', ':exclamation:': '❗', ':question:': '❓'
     }
 
-    return text.replace(/:([a-z_+\-0-9]+):/g, (match, emojiName) => {
+    return text.replace(/:([a-z_+\-0-9]+):/g, (match) => {
       return emojiMap[match] || match
     })
   }

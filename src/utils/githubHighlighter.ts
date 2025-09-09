@@ -1,10 +1,15 @@
-// GitHub-style syntax highlighter using highlight.js
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github.css'
+import '../github-js/index.ts'
+
+declare global {
+  interface Window {
+    CodeMirror: any
+  }
+}
 
 export class GitHubHighlighter {
   private static instance: GitHubHighlighter
   private loaded = false
+  private codeMirror: any = null
 
   private constructor() {}
 
@@ -19,37 +24,82 @@ export class GitHubHighlighter {
     if (this.loaded) return
 
     try {
-      // Configure highlight.js with GitHub-style languages
-      hljs.configure({
-        classPrefix: 'hljs-',
-        languages: ['javascript', 'typescript', 'python', 'java', 'cpp', 'c', 'csharp', 'php', 'ruby', 'go', 'rust', 'swift', 'kotlin', 'scala', 'html', 'css', 'scss', 'json', 'xml', 'yaml', 'markdown', 'bash', 'shell', 'sql', 'dockerfile', 'nginx']
-      })
-      
-      this.loaded = true
-      console.log('GitHub-style syntax highlighting loaded successfully')
+      await this.loadStylesheet('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css')
+      await this.loadStylesheet('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/github.min.css')
+      if (typeof window !== 'undefined' && window.CodeMirror) {
+        this.codeMirror = window.CodeMirror
+        this.loaded = true
+        console.log('GitHub CodeMirror modes loaded successfully')
+      } else {
+        throw new Error('CodeMirror not available')
+      }
     } catch (error) {
-      console.warn('Failed to initialize GitHub syntax highlighting:', error)
-      this.loaded = true
+      console.warn('Failed to load GitHub assets:', error)
+      this.loaded = true // Prevent infinite retry
     }
   }
 
+  private loadStylesheet(href: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined') {
+        resolve()
+        return
+      }
+      
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href
+      link.onload = () => resolve()
+      link.onerror = reject
+      document.head.appendChild(link)
+    })
+  }
+
   highlight(code: string, language: string): string {
-    if (!this.loaded) {
+    if (!this.loaded || !this.codeMirror) {
       return this.escapeHtml(code)
     }
 
     try {
-      // Use highlight.js to get GitHub-style syntax highlighting
-      if (language && hljs.getLanguage(language)) {
-        const result = hljs.highlight(code, { language })
-        return result.value
+      // Map common languages to CodeMirror modes
+      const modeMap: Record<string, string> = {
+        'javascript': 'javascript',
+        'js': 'javascript',
+        'typescript': 'javascript',
+        'ts': 'javascript',
+        'markdown': 'gfm',
+        'md': 'gfm',
+        'html': 'xml',
+        'xml': 'xml',
+        'json': 'javascript',
+        'python': 'python',
+        'java': 'text/x-java',
+        'cpp': 'text/x-c++src',
+        'c': 'text/x-csrc',
+        'css': 'css',
+        'php': 'php',
+        'ruby': 'ruby',
+        'go': 'go',
+        'rust': 'rust',
+        'shell': 'shell',
+        'bash': 'shell',
+        'sql': 'sql'
+      }
+
+      const mode = modeMap[language?.toLowerCase()] || 'gfm'
+      
+      // Create a temporary div to hold the highlighted code
+      const tempDiv = document.createElement('div')
+      
+      // Use CodeMirror's runMode to highlight the code
+      if (this.codeMirror.runMode) {
+        this.codeMirror.runMode(code, mode, tempDiv)
+        return tempDiv.innerHTML
       } else {
-        // Auto-detect language if specific language not supported
-        const result = hljs.highlightAuto(code)
-        return result.value
+        return this.escapeHtml(code)
       }
     } catch (error) {
-      console.warn('Highlight.js failed, using escaped code:', error)
+      console.warn('GitHub CodeMirror highlighting failed:', error)
       return this.escapeHtml(code)
     }
   }
