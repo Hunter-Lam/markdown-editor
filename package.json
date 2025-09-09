@@ -16,8 +16,18 @@
     "@tauri-apps/plugin-opener": "^2",
     "@types/highlight.js": "^10.1.0",
     "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
     "marked": "^16.2.1",
+    "marked-gfm-heading-id": "^4.1.2",
+    "marked-highlight": "^2.2.2",
+    "marked-mangle": "^1.1.11",
     "prismjs": "^1.30.0",
+    "rehype-katex": "^7.0.1",
+    "remark": "^15.0.1",
+    "remark-emoji": "^5.0.2",
+    "remark-gfm": "^4.0.1",
+    "remark-html": "^16.0.1",
+    "remark-math": "^6.0.0",
     "vue": "^3.5.13"
   },
   "devDependencies": {

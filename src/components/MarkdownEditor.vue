@@ -1,101 +1,221 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { marked } from 'marked'
-import hljs from 'highlight.js/lib/core'
-import javascript from 'highlight.js/lib/languages/javascript'
-import python from 'highlight.js/lib/languages/python'
-import typescript from 'highlight.js/lib/languages/typescript'
-import css from 'highlight.js/lib/languages/css'
-import html from 'highlight.js/lib/languages/xml'
-import json from 'highlight.js/lib/languages/json'
-import bash from 'highlight.js/lib/languages/bash'
-import 'highlight.js/styles/github.css'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { enhancedMarkdownProcessor } from '../utils/enhancedMarkdown'
+import 'katex/dist/katex.min.css'
 
-const markdown = ref(`# Welcome to Markdown Editor
+const markdown = ref(`# Welcome to GitHub Flavored Markdown Editor
 
-This is a **Typora-like** markdown editor with instant rendering.
+This is a **Typora-like** markdown editor with instant rendering and **GitHub Flavored Markdown** support!
 
-## Features
+## ✨ Features
 
-- Real-time preview
-- Syntax highlighting
-- Clean interface
-- Split view
+- [x] Real-time preview with GFM support
+- [x] GitHub-style syntax highlighting
+- [x] Task lists (like this one!)
+- [x] Tables with alignment
+- [x] Strikethrough text
+- [x] Auto-linking URLs
+- [x] Clean interface
+- [ ] More features coming soon!
 
-### Code Example
+## Code Examples
+
+### JavaScript with GitHub Highlighting
 
 \`\`\`javascript
-function hello() {
-  console.log("Hello, World!");
-  
-  // ES6 arrow function
-  const greet = (name) => {
-    return \`Hello, \${name}!\`;
-  };
-  
-  // Array methods
-  const numbers = [1, 2, 3, 4, 5];
-  const doubled = numbers.map(n => n * 2);
-  console.log(doubled);
+// GitHub-style syntax highlighting
+function fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
 }
 
-// Call the function
-hello();
+// ES6 features
+const asyncExample = async () => {
+  try {
+    const response = await fetch('https://api.github.com/users/octocat');
+    const user = await response.json();
+    console.log(\`User: \${user.name}\`);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
+
+// Modern JavaScript features
+const numbers = [1, 2, 3, 4, 5];
+const doubled = numbers.map(n => n * 2);
+const sum = numbers.reduce((acc, curr) => acc + curr, 0);
 \`\`\`
 
 ### Python Example
 
 \`\`\`python
-def fibonacci(n):
-    """Generate Fibonacci sequence up to n terms."""
-    a, b = 0, 1
-    result = []
-    
-    for _ in range(n):
-        result.append(a)
-        a, b = b, a + b
-    
-    return result
+import asyncio
+from typing import List, Optional
 
-# Generate first 10 Fibonacci numbers
-fib_sequence = fibonacci(10)
-print(f"Fibonacci sequence: {fib_sequence}")
+class DataProcessor:
+    """A class for processing data with async support."""
+    
+    def __init__(self, data: List[int]):
+        self.data = data
+    
+    async def process_async(self) -> Optional[int]:
+        """Asynchronously process the data."""
+        if not self.data:
+            return None
+        
+        # Simulate async processing
+        await asyncio.sleep(0.1)
+        return sum(x * 2 for x in self.data if x > 0)
+
+# Usage example
+async def main():
+    processor = DataProcessor([1, -2, 3, 4, -5])
+    result = await processor.process_async()
+    print(f"Processed result: {result}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
 \`\`\`
 
-### Lists
+### JSON Configuration
 
-- Item 1
-- Item 2
-  - Nested item
-  - Another nested item
+\`\`\`json
+{
+  "name": "markdown-editor",
+  "version": "1.0.0",
+  "features": {
+    "gfm": true,
+    "syntaxHighlighting": "github",
+    "taskLists": true,
+    "tables": true,
+    "strikethrough": true
+  },
+  "languages": ["javascript", "python", "rust", "go", "typescript"]
+}
+\`\`\`
 
-### Tables
+## GitHub Flavored Markdown Features
 
-| Language | Extension | Syntax Highlighting |
-|----------|-----------|-------------------|
-| JavaScript | .js | ✅ |
-| Python | .py | ✅ |
-| TypeScript | .ts | ✅ |
+### Task Lists
+- [x] Support for task lists
+- [x] Checked items
+- [ ] Unchecked items
+- [ ] ~~Strikethrough~~ completed items
 
-### Links and Images
+### Tables with Alignment
 
-[Link to Google](https://google.com)
+| Feature | Status | Priority | Notes |
+|---------|:------:|:---------|------:|
+| GFM Support | ✅ | High | Using GitHub assets |
+| Syntax Highlighting | ✅ | High | Official GitHub JS |
+| Task Lists | ✅ | Medium | Interactive checkboxes |
+| Tables | ✅ | Medium | With alignment support |
+| Strikethrough | ✅ | Low | ~~Like this~~ |
+| Auto-linking | ✅ | Low | https://github.com |
 
-> This is a blockquote example with **bold** and *italic* text.
+### Text Formatting
+
+**Bold text** and *italic text* and ***bold italic***
+
+~~Strikethrough text~~ for deleted content
+
+### Links and References
+
+Auto-linking: https://github.com/microsoft/vscode
+
+[GitHub](https://github.com) - The world's leading software development platform
+
+### Code and Mentions
+
+Inline \`code\` with backticks
+
+You can reference users like @octocat (GitHub-style)
+
+### Blockquotes
+
+> GitHub Flavored Markdown extends the basic Markdown specification.
+> 
+> > Nested blockquotes are also supported.
+> 
+> **Features include:**
+> - Fenced code blocks with syntax highlighting
+> - Tables with column alignment
+> - Task lists for todos
+> - Strikethrough text
+
+### Horizontal Rules
 
 ---
 
-Start editing to see the magic! ✨`)
+## 🎭 Emoji Support
 
-const htmlContent = computed(() => {
+GitHub supports emoji shortcodes! Try these:
+
+:smile: :heart: :rocket: :fire: :sparkles: :star: :+1: :-1: :warning: :check_mark:
+
+:coffee: :computer: :bulb: :zap: :boom: :tada: :wave: :eyes: :clap: :pray:
+
+You can use emoji shortcodes like \`:smile:\` which renders as :smile:
+
+## 🧮 Math Expressions
+
+### Inline Math
+When $a \\ne 0$, there are two solutions to $ax^2 + bx + c = 0$ and they are:
+
+$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$
+
+### Block Math
+
+$$
+\\begin{aligned}
+\\nabla \\times \\vec{\\mathbf{B}} -\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{E}}}{\\partial t} &= \\frac{4\\pi}{c}\\vec{\\mathbf{j}} \\\\
+\\nabla \\cdot \\vec{\\mathbf{E}} &= 4 \\pi \\rho \\\\
+\\nabla \\times \\vec{\\mathbf{E}}\\, +\\, \\frac1c\\, \\frac{\\partial\\vec{\\mathbf{B}}}{\\partial t} &= \\vec{\\mathbf{0}} \\\\
+\\nabla \\cdot \\vec{\\mathbf{B}} &= 0
+\\end{aligned}
+$$
+
+### More Math Examples
+
+Fractions: $\\frac{n!}{k!(n-k)!} = \\binom{n}{k}$
+
+Limits: $\\lim_{x \\to \\infty} \\frac{1}{x} = 0$
+
+Integrals: $\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$
+
+Matrices:
+$$
+\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix}
+\\begin{pmatrix}
+x \\\\
+y
+\\end{pmatrix}
+=
+\\begin{pmatrix}
+ax + by \\\\
+cx + dy
+\\end{pmatrix}
+$$
+
+---
+
+🚀 Start editing to see GitHub Flavored Markdown with emoji :tada: and math $E = mc^2$ in action!`)
+
+const htmlContent = ref('')
+
+const updateHtmlContent = async () => {
   try {
-    return marked(markdown.value)
+    htmlContent.value = await enhancedMarkdownProcessor.renderMarkdown(markdown.value)
   } catch (error) {
-    return '<p>Error parsing markdown</p>'
+    console.error('Markdown rendering error:', error)
+    htmlContent.value = '<p>Error parsing markdown</p>'
   }
-})
+}
 
 const editorRef = ref<HTMLTextAreaElement>()
 const previewRef = ref<HTMLDivElement>()
@@ -115,52 +235,17 @@ const syncScroll = (source: 'editor' | 'preview') => {
   }
 }
 
-const highlightCodeBlocks = () => {
-  if (!previewRef.value) return
+onMounted(async () => {
+  // Initialize the enhanced markdown processor
+  await enhancedMarkdownProcessor.initialize()
   
-  nextTick(() => {
-    const codeBlocks = previewRef.value!.querySelectorAll('pre code')
-    codeBlocks.forEach((block) => {
-      hljs.highlightElement(block as HTMLElement)
-    })
-  })
-}
-
-onMounted(() => {
-  // Register languages
-  hljs.registerLanguage('javascript', javascript)
-  hljs.registerLanguage('python', python)
-  hljs.registerLanguage('typescript', typescript)
-  hljs.registerLanguage('css', css)
-  hljs.registerLanguage('html', html)
-  hljs.registerLanguage('json', json)
-  hljs.registerLanguage('bash', bash)
-  
-  // Configure marked for better rendering
-  marked.setOptions({
-    breaks: true,
-    gfm: true,
-    highlight: function(code, lang) {
-      if (lang && hljs.getLanguage(lang)) {
-        try {
-          return hljs.highlight(code, { language: lang }).value
-        } catch (err) {
-          console.error('Highlighting error:', err)
-        }
-      }
-      return code
-    }
-  })
-  
-  // Initial highlighting
-  highlightCodeBlocks()
+  // Initial render
+  await updateHtmlContent()
 })
 
-// Watch for content changes and re-highlight
-const updateContent = () => {
-  nextTick(() => {
-    highlightCodeBlocks()
-  })
+// Watch for content changes
+const updateContent = async () => {
+  await updateHtmlContent()
 }
 
 // File operations
@@ -546,6 +631,111 @@ const getFileName = () => {
   font-style: italic;
 }
 
+/* GitHub Flavored Markdown Features */
+.preview :deep(del) {
+  text-decoration: line-through;
+  color: #656d76;
+}
+
+.preview :deep(.task-list-item) {
+  list-style-type: none;
+}
+
+.preview :deep(.task-list-item input) {
+  margin: 0 6px 0 -20px;
+  vertical-align: middle;
+}
+
+.preview :deep(.highlight) {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow: auto;
+}
+
+/* GitHub-style syntax highlighting - both hljs and CodeMirror */
+.preview :deep(.hljs-keyword),
+.preview :deep(.cm-keyword) {
+  color: #d73a49;
+  font-weight: 600;
+}
+
+.preview :deep(.hljs-string),
+.preview :deep(.cm-string) {
+  color: #032f62;
+}
+
+.preview :deep(.hljs-number),
+.preview :deep(.cm-number) {
+  color: #005cc5;
+}
+
+.preview :deep(.hljs-comment),
+.preview :deep(.cm-comment) {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.preview :deep(.hljs-function),
+.preview :deep(.cm-def),
+.preview :deep(.cm-variable-2) {
+  color: #6f42c1;
+}
+
+.preview :deep(.hljs-variable),
+.preview :deep(.cm-variable) {
+  color: #e36209;
+}
+
+.preview :deep(.hljs-property),
+.preview :deep(.cm-property) {
+  color: #005cc5;
+}
+
+.preview :deep(.hljs-boolean),
+.preview :deep(.cm-atom) {
+  color: #005cc5;
+  font-weight: 600;
+}
+
+.preview :deep(.hljs-class),
+.preview :deep(.cm-variable-3) {
+  color: #6f42c1;
+  font-weight: 600;
+}
+
+.preview :deep(.cm-operator) {
+  color: #d73a49;
+}
+
+.preview :deep(.cm-bracket) {
+  color: #24292e;
+}
+
+.preview :deep(.cm-tag) {
+  color: #22863a;
+}
+
+.preview :deep(.cm-attribute) {
+  color: #6f42c1;
+}
+
+/* Table alignment support */
+.preview :deep(td[align="center"]),
+.preview :deep(th[align="center"]) {
+  text-align: center;
+}
+
+.preview :deep(td[align="right"]),
+.preview :deep(th[align="right"]) {
+  text-align: right;
+}
+
+.preview :deep(td[align="left"]),
+.preview :deep(th[align="left"]) {
+  text-align: left;
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .markdown-editor {
@@ -642,6 +832,78 @@ const getFileName = () => {
   
   .preview :deep(hr) {
     background-color: #30363d;
+  }
+  
+  /* Dark mode GFM features */
+  .preview :deep(del) {
+    color: #8b949e;
+  }
+  
+  .preview :deep(.highlight) {
+    background: #161b22;
+  }
+  
+  /* Dark mode syntax highlighting - both hljs and CodeMirror */
+  .preview :deep(.hljs-keyword),
+  .preview :deep(.cm-keyword) {
+    color: #ff7b72;
+  }
+  
+  .preview :deep(.hljs-string),
+  .preview :deep(.cm-string) {
+    color: #a5d6ff;
+  }
+  
+  .preview :deep(.hljs-number),
+  .preview :deep(.cm-number) {
+    color: #79c0ff;
+  }
+  
+  .preview :deep(.hljs-comment),
+  .preview :deep(.cm-comment) {
+    color: #8b949e;
+  }
+  
+  .preview :deep(.hljs-function),
+  .preview :deep(.cm-def),
+  .preview :deep(.cm-variable-2) {
+    color: #d2a8ff;
+  }
+  
+  .preview :deep(.hljs-variable),
+  .preview :deep(.cm-variable) {
+    color: #ffa657;
+  }
+  
+  .preview :deep(.hljs-property),
+  .preview :deep(.cm-property) {
+    color: #79c0ff;
+  }
+  
+  .preview :deep(.hljs-boolean),
+  .preview :deep(.cm-atom) {
+    color: #79c0ff;
+  }
+  
+  .preview :deep(.hljs-class),
+  .preview :deep(.cm-variable-3) {
+    color: #d2a8ff;
+  }
+  
+  .preview :deep(.cm-operator) {
+    color: #ff7b72;
+  }
+  
+  .preview :deep(.cm-bracket) {
+    color: #e6edf3;
+  }
+  
+  .preview :deep(.cm-tag) {
+    color: #7ee787;
+  }
+  
+  .preview :deep(.cm-attribute) {
+    color: #d2a8ff;
   }
 }
 </style>
