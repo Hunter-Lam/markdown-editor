@@ -220,19 +220,61 @@ const updateHtmlContent = async () => {
 const editorRef = ref<HTMLTextAreaElement>()
 const previewRef = ref<HTMLDivElement>()
 
+// Throttle scroll events to improve performance
+let scrollTimeout: number | null = null
+let isScrolling = false
+
 const syncScroll = (source: 'editor' | 'preview') => {
-  if (!editorRef.value || !previewRef.value) return
+  if (!editorRef.value || !previewRef.value || isScrolling) return
   
   const editor = editorRef.value
   const preview = previewRef.value
   
-  if (source === 'editor') {
-    const scrollPercentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight)
-    preview.scrollTop = scrollPercentage * (preview.scrollHeight - preview.clientHeight)
-  } else {
-    const scrollPercentage = preview.scrollTop / (preview.scrollHeight - preview.clientHeight)
-    editor.scrollTop = scrollPercentage * (editor.scrollHeight - editor.clientHeight)
+  // Clear any existing timeout
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
   }
+  
+  scrollTimeout = setTimeout(() => {
+    isScrolling = true
+    
+    try {
+      if (source === 'editor') {
+        // Calculate scroll percentage for editor
+        const editorScrollTop = editor.scrollTop
+        const editorScrollHeight = editor.scrollHeight - editor.clientHeight
+        
+        if (editorScrollHeight > 0) {
+          const scrollPercentage = Math.max(0, Math.min(1, editorScrollTop / editorScrollHeight))
+          const previewScrollHeight = preview.scrollHeight - preview.clientHeight
+          
+          if (previewScrollHeight > 0) {
+            preview.scrollTop = scrollPercentage * previewScrollHeight
+          }
+        }
+      } else {
+        // Calculate scroll percentage for preview
+        const previewScrollTop = preview.scrollTop
+        const previewScrollHeight = preview.scrollHeight - preview.clientHeight
+        
+        if (previewScrollHeight > 0) {
+          const scrollPercentage = Math.max(0, Math.min(1, previewScrollTop / previewScrollHeight))
+          const editorScrollHeight = editor.scrollHeight - editor.clientHeight
+          
+          if (editorScrollHeight > 0) {
+            editor.scrollTop = scrollPercentage * editorScrollHeight
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Scroll sync error:', error)
+    } finally {
+      // Reset scrolling flag after a short delay
+      setTimeout(() => {
+        isScrolling = false
+      }, 50)
+    }
+  }, 10) // Small delay to throttle rapid scroll events
 }
 
 onMounted(async () => {
