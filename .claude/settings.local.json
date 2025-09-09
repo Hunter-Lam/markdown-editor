@@ -4,7 +4,14 @@
       "Bash(npm install:*)",
       "Bash(yarn add:*)",
       "Bash(yarn dev:*)",
-      "Bash(yarn tauri dev:*)"
+      "Bash(yarn tauri dev:*)",
+      "WebFetch(domain:github.github.com)",
+      "WebFetch(domain:docs.github.com)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(yarn build:*)",
+      "Bash(vue-tsc:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
