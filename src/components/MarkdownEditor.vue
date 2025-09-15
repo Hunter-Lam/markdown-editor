@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { enhancedMarkdownProcessor } from '../utils/enhancedMarkdown'
@@ -18,6 +18,10 @@ This is a **Typora-like** markdown editor with instant rendering and **GitHub Fl
 - [x] Strikethrough text
 - [x] Auto-linking URLs
 - [x] Clean interface
+- [x] File operations (New, Open, Save, Save As)
+- [x] Auto-save functionality
+- [x] Math expressions with KaTeX
+- [x] Emoji support
 - [ ] More features coming soon!
 
 ## Code Examples
@@ -56,15 +60,15 @@ from typing import List, Optional
 
 class DataProcessor:
     """A class for processing data with async support."""
-    
+
     def __init__(self, data: List[int]):
         self.data = data
-    
+
     async def process_async(self) -> Optional[int]:
         """Asynchronously process the data."""
         if not self.data:
             return None
-        
+
         # Simulate async processing
         await asyncio.sleep(0.1)
         return sum(x * 2 for x in self.data if x > 0)
@@ -79,6 +83,37 @@ if __name__ == "__main__":
     asyncio.run(main())
 \`\`\`
 
+### Rust Example
+
+\`\`\`rust
+use std::collections::HashMap;
+
+#[derive(Debug)]
+struct User {
+    id: u32,
+    name: String,
+    email: String,
+}
+
+impl User {
+    fn new(id: u32, name: &str, email: &str) -> Self {
+        User {
+            id,
+            name: name.to_string(),
+            email: email.to_string(),
+        }
+    }
+}
+
+fn main() {
+    let mut users = HashMap::new();
+    let user = User::new(1, "Alice", "alice@example.com");
+    users.insert(user.id, user);
+
+    println!("Users: {:#?}", users);
+}
+\`\`\`
+
 ### JSON Configuration
 
 \`\`\`json
@@ -90,9 +125,12 @@ if __name__ == "__main__":
     "syntaxHighlighting": "github",
     "taskLists": true,
     "tables": true,
-    "strikethrough": true
+    "strikethrough": true,
+    "autoLinking": true,
+    "emoji": true,
+    "math": true
   },
-  "languages": ["javascript", "python", "rust", "go", "typescript"]
+  "languages": ["javascript", "python", "rust", "go", "typescript", "html", "css"]
 }
 \`\`\`
 
@@ -136,9 +174,9 @@ You can reference users like @octocat (GitHub-style)
 ### Blockquotes
 
 > GitHub Flavored Markdown extends the basic Markdown specification.
-> 
+>
 > > Nested blockquotes are also supported.
-> 
+>
 > **Features include:**
 > - Fenced code blocks with syntax highlighting
 > - Tables with column alignment
@@ -185,6 +223,8 @@ Limits: $\\lim_{x \\to \\infty} \\frac{1}{x} = 0$
 
 Integrals: $\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$
 
+Summations: $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$
+
 Matrices:
 $$
 \\begin{pmatrix}
@@ -204,9 +244,45 @@ $$
 
 ---
 
+## 🚀 Getting Started
+
+**Keyboard Shortcuts:**
+- **Ctrl+N** (Cmd+N on Mac): New file
+- **Ctrl+O** (Cmd+O on Mac): Open file
+- **Ctrl+S** (Cmd+S on Mac): Save file
+- **Ctrl+Shift+S** (Cmd+Shift+S on Mac): Save as
+- **Ctrl+R** (Cmd+R on Mac): Toggle auto-save
+
 🚀 Start editing to see GitHub Flavored Markdown with emoji :tada: and math $E = mc^2$ in action!`)
 
+// UI References
+const editorRef = ref<HTMLTextAreaElement>()
+const previewRef = ref<HTMLDivElement>()
 const htmlContent = ref('')
+
+// File State
+const currentFilePath = ref<string | null>(null)
+const isModified = ref(false)
+const lastSaved = ref<Date | null>(null)
+
+// Save State
+const isSaving = ref(false)
+
+// Auto-save Configuration
+const autoSaveEnabled = ref(true)
+const autoSaveDelay = ref(3000)
+let autoSaveStopTimer: number | null = null
+
+// Status Management
+const statusMessage = ref('Ready')
+const statusType = ref<'info' | 'error' | 'success'>('info')
+let statusTimeout: number | null = null
+
+// Scroll Synchronization
+let scrollTimeout: number | null = null
+let isScrolling = false
+
+// ==================== UI & RENDERING ====================
 
 const updateHtmlContent = async () => {
   try {
@@ -217,30 +293,19 @@ const updateHtmlContent = async () => {
   }
 }
 
-const editorRef = ref<HTMLTextAreaElement>()
-const previewRef = ref<HTMLDivElement>()
-
-// Throttle scroll events to improve performance
-let scrollTimeout: number | null = null
-let isScrolling = false
-
 const syncScroll = (source: 'editor' | 'preview') => {
   if (!editorRef.value || !previewRef.value || isScrolling) return
   
   const editor = editorRef.value
   const preview = previewRef.value
   
-  // Clear any existing timeout
-  if (scrollTimeout) {
-    clearTimeout(scrollTimeout)
-  }
+  if (scrollTimeout) clearTimeout(scrollTimeout)
   
   scrollTimeout = setTimeout(() => {
     isScrolling = true
     
     try {
       if (source === 'editor') {
-        // Calculate scroll percentage for editor
         const editorScrollTop = editor.scrollTop
         const editorScrollHeight = editor.scrollHeight - editor.clientHeight
         
@@ -253,7 +318,6 @@ const syncScroll = (source: 'editor' | 'preview') => {
           }
         }
       } else {
-        // Calculate scroll percentage for preview
         const previewScrollTop = preview.scrollTop
         const previewScrollHeight = preview.scrollHeight - preview.clientHeight
         
@@ -269,43 +333,35 @@ const syncScroll = (source: 'editor' | 'preview') => {
     } catch (error) {
       console.warn('Scroll sync error:', error)
     } finally {
-      // Reset scrolling flag after a short delay
       setTimeout(() => {
         isScrolling = false
       }, 50)
     }
-  }, 10) // Small delay to throttle rapid scroll events
+  }, 10)
 }
 
-onMounted(async () => {
-  // Initialize the enhanced markdown processor
-  await enhancedMarkdownProcessor.initialize()
-  
-  // Initial render
-  await updateHtmlContent()
-})
+// ==================== FILE OPERATIONS ====================
 
-// Watch for content changes
-const updateContent = async () => {
-  await updateHtmlContent()
-}
-
-// File operations
-const currentFilePath = ref<string | null>(null)
-const isModified = ref(false)
-
-const newFile = () => {
+const newFile = async () => {
   if (isModified.value) {
     const shouldProceed = confirm('You have unsaved changes. Are you sure you want to create a new file?')
-    if (!shouldProceed) return
+    if (!shouldProceed) {
+      showStatus('New file cancelled', 1000)
+      return
+    }
   }
-  
+
+  stopAutoSave() // Stop any existing auto-save timers
   markdown.value = ''
   currentFilePath.value = null
   isModified.value = false
+  lastSaved.value = null
+  showStatus('New file created', 1000)
+  
+  await updateHtmlContent()
 }
 
-const openFile = async () => {
+const openFileDialog = async () => {
   try {
     const selected = await open({
       multiple: false,
@@ -314,35 +370,72 @@ const openFile = async () => {
         extensions: ['md', 'markdown', 'txt']
       }]
     })
-    
+
     if (selected) {
       const content = await readTextFile(selected as string)
       markdown.value = content
       currentFilePath.value = selected as string
       isModified.value = false
+      lastSaved.value = new Date()
+      showStatus(`Opened: ${getFileName()}`, 2000)
+      await updateHtmlContent()
+      scheduleAutoSave()
     }
   } catch (error) {
     console.error('Error opening file:', error)
-    alert('Failed to open file')
+    showStatus('Failed to open file', 3000, 'error')
   }
 }
 
-const saveFile = async () => {
+const openFile = async () => {
+  stopAutoSave()
+
+  // Check for unsaved changes first
+  if (isModified.value) {
+    const shouldProceed = confirm('You have unsaved changes. Are you sure you want to open a new file?')
+    if (!shouldProceed) {
+      showStatus('Open cancelled', 1000)
+      scheduleAutoSave() // Restart auto-save if cancelled
+      return
+    }
+    // Clear modified state and proceed with opening
+    isModified.value = false
+  }
+
+  // Call the separate dialog function
+  await openFileDialog()
+}
+
+const saveFile = async (showSuccessMessage = false) => {
+  if (isSaving.value) return
+  
   try {
+    isSaving.value = true
     if (currentFilePath.value) {
       await writeTextFile(currentFilePath.value, markdown.value)
       isModified.value = false
+      lastSaved.value = new Date()
+      if (showSuccessMessage) {
+        showStatus('File saved successfully', 2000)
+      }
     } else {
+      isSaving.value = false
       await saveAsFile()
+      return
     }
   } catch (error) {
     console.error('Error saving file:', error)
-    alert('Failed to save file')
+    showStatus('Failed to save file', 3000, 'error')
+  } finally {
+    isSaving.value = false
   }
 }
 
 const saveAsFile = async () => {
+  if (isSaving.value) return
+  
   try {
+    isSaving.value = true
     const filePath = await save({
       filters: [{
         name: 'Markdown',
@@ -355,23 +448,137 @@ const saveAsFile = async () => {
       await writeTextFile(filePath, markdown.value)
       currentFilePath.value = filePath
       isModified.value = false
+      lastSaved.value = new Date()
+      showStatus('File saved successfully', 2000)
     }
   } catch (error) {
     console.error('Error saving file:', error)
-    alert('Failed to save file')
+    showStatus('Failed to save file', 3000, 'error')
+  } finally {
+    isSaving.value = false
   }
 }
 
-// Track changes
+// ==================== AUTO-SAVE ====================
+
+const scheduleAutoSave = () => {
+  if (!autoSaveEnabled.value || !currentFilePath.value || isSaving.value) return
+  
+  if (autoSaveStopTimer) {
+    clearTimeout(autoSaveStopTimer)
+  }
+  
+  autoSaveStopTimer = setTimeout(() => {
+    if (isModified.value && currentFilePath.value && !isSaving.value) {
+      saveFile(false)
+    }
+  }, autoSaveDelay.value)
+}
+
+const stopAutoSave = () => {
+  if (autoSaveStopTimer) {
+    clearTimeout(autoSaveStopTimer)
+    autoSaveStopTimer = null
+  }
+}
+
+const toggleAutoSave = () => {
+  autoSaveEnabled.value = !autoSaveEnabled.value
+  if (autoSaveEnabled.value) {
+    showStatus(`Auto-save enabled (${Math.round(autoSaveDelay.value / 1000)}s after stop)`, 2000)
+  } else {
+    stopAutoSave()
+    showStatus('Auto-save disabled', 2000)
+  }
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
 const handleInput = () => {
   isModified.value = true
-  updateContent()
+  updateHtmlContent()
+  scheduleAutoSave()
 }
 
 const getFileName = () => {
   if (!currentFilePath.value) return 'Untitled'
   return currentFilePath.value.split('/').pop() || 'Untitled'
 }
+
+const formatTime = (date: Date) => {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const showStatus = (message: string, duration = 3000, type: 'info' | 'error' | 'success' = 'info') => {
+  statusMessage.value = message
+  statusType.value = type
+  
+  if (statusTimeout) {
+    clearTimeout(statusTimeout)
+  }
+  
+  statusTimeout = setTimeout(() => {
+    statusMessage.value = 'Ready'
+    statusType.value = 'info'
+  }, duration)
+}
+
+// ==================== EVENT HANDLERS ====================
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  const isMac = navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
+  const ctrlKey = isMac ? event.metaKey : event.ctrlKey
+  
+  if (ctrlKey) {
+    switch (event.key) {
+      case 'n':
+        event.preventDefault()
+        newFile()
+        break
+      case 'o':
+        event.preventDefault()
+        openFile()
+        break
+      case 's':
+        event.preventDefault()
+        if (event.shiftKey) {
+          saveAsFile()
+        } else {
+          saveFile(true)
+        }
+        break
+      case 'r':
+        event.preventDefault()
+        toggleAutoSave()
+        break
+    }
+  }
+}
+
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (isModified.value) {
+    event.preventDefault()
+    // Modern browsers only need preventDefault
+    return 'You have unsaved changes. Are you sure you want to leave?'
+  }
+}
+
+// ==================== LIFECYCLE HOOKS ====================
+
+onMounted(async () => {
+  await enhancedMarkdownProcessor.initialize()
+  await updateHtmlContent()
+  document.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  stopAutoSave()
+  if (statusTimeout) clearTimeout(statusTimeout)
+})
+
 </script>
 
 <template>
@@ -385,18 +592,28 @@ const getFileName = () => {
         <button @click="openFile" class="toolbar-btn" title="Open File (Ctrl+O)">
           📁 Open
         </button>
-        <button @click="saveFile" class="toolbar-btn" title="Save File (Ctrl+S)">
-          💾 Save
+        <button @click="() => saveFile(true)" class="toolbar-btn" title="Save File (Ctrl+S)" :disabled="isSaving">
+          {{ isSaving ? '⏳' : '💾' }} Save
         </button>
-        <button @click="saveAsFile" class="toolbar-btn" title="Save As (Ctrl+Shift+S)">
+        <button @click="saveAsFile" class="toolbar-btn" title="Save As (Ctrl+Shift+S)" :disabled="isSaving">
           💾 Save As
+        </button>
+        <button @click="toggleAutoSave" class="toolbar-btn" :class="{ 'active': autoSaveEnabled }" :title="`Auto-save (Ctrl+R) - ${autoSaveEnabled ? Math.round(autoSaveDelay / 1000) + 's after stop' : 'Disabled'}`">
+          {{ autoSaveEnabled ? '⏸️' : '💾' }} Auto-save
         </button>
       </div>
       <div class="toolbar-center">
         <span class="file-name">{{ getFileName() }}{{ isModified ? ' •' : '' }}</span>
       </div>
       <div class="toolbar-right">
-        <span class="status">Ready</span>
+        <div class="auto-save-status" v-if="autoSaveEnabled && currentFilePath">
+          <span class="auto-save-indicator">⏸️</span>
+          <span class="auto-save-text">{{ Math.round(autoSaveDelay / 1000) }}s after stop</span>
+        </div>
+        <span class="status" :class="`status-${statusType}`">{{ statusMessage }}</span>
+        <span v-if="lastSaved" class="last-saved" title="Last saved time">
+          Saved: {{ formatTime(lastSaved) }}
+        </span>
       </div>
     </div>
     
@@ -480,6 +697,22 @@ const getFileName = () => {
   background: #ebecef;
 }
 
+.toolbar-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.active {
+  background: #0969da;
+  color: white;
+  border-color: #0969da;
+}
+
+.toolbar-btn.active:hover {
+  background: #0860ca;
+  border-color: #0860ca;
+}
+
 .file-name {
   font-weight: 600;
   color: #24292f;
@@ -489,6 +722,41 @@ const getFileName = () => {
 .status {
   font-size: 12px;
   color: #656d76;
+}
+
+.status-success {
+  color: #1a7f37;
+}
+
+.status-error {
+  color: #d1242f;
+}
+
+.status-info {
+  color: #656d76;
+}
+
+.auto-save-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #656d76;
+  margin-right: 16px;
+}
+
+.auto-save-indicator {
+  font-size: 10px;
+}
+
+.auto-save-text {
+  font-size: 11px;
+}
+
+.last-saved {
+  font-size: 11px;
+  color: #8b949e;
+  margin-left: 12px;
 }
 
 .editor-container {
@@ -804,12 +1072,47 @@ const getFileName = () => {
     background: #262c36;
   }
   
+  .toolbar-btn:disabled {
+    opacity: 0.5;
+  }
+  
+  .toolbar-btn.active {
+    background: #1f6feb;
+    color: white;
+    border-color: #1f6feb;
+  }
+  
+  .toolbar-btn.active:hover {
+    background: #1158c7;
+    border-color: #1158c7;
+  }
+  
   .file-name {
     color: #e6edf3;
   }
   
   .status {
     color: #8b949e;
+  }
+  
+  .status-success {
+    color: #3fb950;
+  }
+  
+  .status-error {
+    color: #f85149;
+  }
+  
+  .status-info {
+    color: #8b949e;
+  }
+  
+  .auto-save-status {
+    color: #8b949e;
+  }
+  
+  .last-saved {
+    color: #6e7681;
   }
   
   .editor-panel,
