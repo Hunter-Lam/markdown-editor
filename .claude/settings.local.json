@@ -11,7 +11,12 @@
       "Bash(lsof:*)",
       "Bash(yarn build:*)",
       "Bash(vue-tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run tauri:*)",
+      "Bash(xargs kill:*)",
+      "Bash(killall:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
